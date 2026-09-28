@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+saved_models/
+.vscode/
+*.log
+.DS_Store

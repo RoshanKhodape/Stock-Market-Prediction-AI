@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AI Stock Predictor</title>
+
+    <!-- Chart Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.0/dist/chartjs-chart-financial.min.js"></script>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #161d2f;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .dashboard-card {
+            background: #1e2640;
+            border: none;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            height: 100%;
+            transition: transform 0.2s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .action-card {
+            background: #1a2238;
+            border: none;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: #ffffff;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 120px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s ease;
+        }
+
+        .action-card:hover {
+            transform: translateY(-3px);
+            background: #222c48;
+            color: #ffffff;
+        }
+
+        .action-icon {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+
+        .action-label {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #a0aec0;
+        }
+
+        .metric-title {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        .signal-buy {
+            color: #22c55e;
+        }
+
+        .signal-sell {
+            color: #ef4444;
+        }
+
+        .signal-hold {
+            color: #f59e0b;
+        }
+
+        select.form-select {
+            background-color: #1a2238;
+            color: white;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 16px;
+        }
+
+        select.form-select:focus {
+            background-color: #222c48;
+            color: white;
+            border-color: #3b82f6;
+            box-shadow: none;
+        }
+
+        .btn-predict {
+            background-color: #3b82f6;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-weight: 600;
+        }
+
+        .btn-predict:hover {
+            background-color: #2563eb;
+        }
+
+        canvas {
+            width: 100% !important;
+        }
+
+        .footer-text {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-top: 40px;
+        }
+
+        .profit-positive {
+            color: #22c55e;
+        }
+
+        .profit-negative {
+            color: #ef4444;
+        }
+
+        .status-excellent {
+            color: #22c55e;
+        }
+
+        .status-good {
+            color: #84cc16;
+        }
+
+        .status-average {
+            color: #f59e0b;
+        }
+
+        .status-poor {
+            color: #ef4444;
+        }
+
+        .small-metric {
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .metric-subtitle {
+            color: #64748b;
+            font-size: 0.78rem;
+            margin-top: 4px;
+        }
+
+        .error-box {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+
+<body class="container py-5">
+
+    <!-- ========================= -->
+    <!-- HEADER -->
+    <!-- ========================= -->
+
+    <div class="mb-5">
+
+        <h1 class="fw-bold d-flex align-items-center gap-2">
+            📈 AI Stock Predictor
+        </h1>
+
+        <p class="text-muted mb-0">
+            Welcome, Trader 👋
+        </p>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- ERROR -->
+    <!-- ========================= -->
+
+    {% if error %}
+
+    <div class="error-box">
+        ⚠️ <strong>Error:</strong> {{ error }}
+    </div>
+
+    {% endif %}
+
+
+    <!-- ========================= -->
+    <!-- STOCK SELECTOR -->
+    <!-- ========================= -->
+
+    <div class="dashboard-card mb-4">
+
+        <form method="POST" class="row g-3 align-items-center">
+
+            <div class="col-md-4 col-sm-8">
+
+                <select name="stock" class="form-select">
+
+                    <option value="RELIANCE.NS"
+                        {% if stock=='RELIANCE.NS' %}selected{% endif %}>
+                        RELIANCE
+                    </option>
+
+                    <option value="TCS.NS"
+                        {% if stock=='TCS.NS' %}selected{% endif %}>
+                        TCS
+                    </option>
+
+                    <option value="HDFCBANK.NS"
+                        {% if stock=='HDFCBANK.NS' %}selected{% endif %}>
+                        HDFCBANK
+                    </option>
+
+                    <option value="^NSEI"
+                        {% if stock=='^NSEI' %}selected{% endif %}>
+                        NIFTY 50
+                    </option>
+
+                    <option value="^NSEBANK"
+                        {% if stock=='^NSEBANK' %}selected{% endif %}>
+                        BANKNIFTY
+                    </option>
+
+                    <option value="^BSESN"
+                        {% if stock=='^BSESN' %}selected{% endif %}>
+                        SENSEX
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="col-auto">
+
+                <button type="submit"
+                    class="btn btn-primary btn-predict">
+
+                    Predict Now
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+
+    {% if backtest_result %}
+
+    <!-- ========================= -->
+    <!-- TOP METRICS -->
+    <!-- ========================= -->
+
+    <div class="row g-4 mb-4">
+
+        <!-- Predicted Price -->
+        <div class="col-md-4">
+
+            <div class="dashboard-card">
+
+                <div class="metric-title">
+                    🔮 Predicted Price
+                </div>
+
+                <div class="metric-value text-info">
+
+                    {% if predicted %}
+                        ₹ {{ predicted }}
+                    {% else %}
+                        ₹ 0
+                    {% endif %}
+
+                </div>
+
+                {% if current_price %}
+
+                <div class="metric-subtitle">
+
+                    Current Price:
+                    ₹{{ current_price }}
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <!-- Final Signal -->
+        <div class="col-md-4">
+
+            <div class="dashboard-card">
+
+                <div class="metric-title">
+                    🚦 Final Signal
+                </div>
+
+                <div
+                    class="metric-value
+                    {% if final_signal %}
+                        {% if 'BUY' in final_signal %}
+                            signal-buy
+                        {% elif 'SELL' in final_signal %}
+                            signal-sell
+                        {% else %}
+                            signal-hold
+                        {% endif %}
+                    {% endif %}">
+
+                    {% if final_signal %}
+                        {{ final_signal }}
+                    {% else %}
+                        HOLD
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Win Rate -->
+        <div class="col-md-4">
+
+            <div class="dashboard-card">
+
+                <div class="metric-title">
+                    📊 Historical Win Rate
+                </div>
+
+                <div
+                    class="metric-value
+                    {% if backtest_result.win_rate >= 70 %}
+                        status-excellent
+                    {% elif backtest_result.win_rate >= 60 %}
+                        status-good
+                    {% elif backtest_result.win_rate >= 50 %}
+                        status-average
+                    {% else %}
+                        status-poor
+                    {% endif %}">
+
+                    {{ backtest_result.win_rate | round(1) }}%
+
+                </div>
+
+                <div class="metric-subtitle">
+                    Based on {{ backtest_result.total_trades }} historical trades
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- BACKTEST SUMMARY -->
+    <!-- ========================= -->
+
+    <div class="row g-3 mb-4">
+
+        <!-- Total Trades -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-warning">
+                    🔢
+                </div>
+
+                <div class="action-label">
+                    Total Trades
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+                    {{ backtest_result.total_trades }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Winning Trades -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-success">
+                    ✅
+                </div>
+
+                <div class="action-label">
+                    Winning Trades
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    {{ backtest_result.winning_trades }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Losing Trades -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-danger">
+                    ❌
+                </div>
+
+                <div class="action-label">
+                    Losing Trades
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    {{ backtest_result.losing_trades }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Accuracy Status -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-info">
+                    🎯
+                </div>
+
+                <div class="action-label">
+                    Accuracy Status
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    {% if backtest_result.win_rate >= 70 %}
+
+                        <span class="status-excellent">
+                            Excellent
+                        </span>
+
+                    {% elif backtest_result.win_rate >= 60 %}
+
+                        <span class="status-good">
+                            Good
+                        </span>
+
+                    {% elif backtest_result.win_rate >= 50 %}
+
+                        <span class="status-average">
+                            Average
+                        </span>
+
+                    {% else %}
+
+                        <span class="status-poor">
+                            Needs Improvement
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- PROFIT / RETURN -->
+    <!-- ========================= -->
+
+    <div class="row g-3 mb-4">
+
+        <!-- Initial Capital -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-info">
+                    💰
+                </div>
+
+                <div class="action-label">
+                    Initial Capital
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    ₹{{ "{:,.2f}".format(backtest_result.initial_capital) }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Final Capital -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-info">
+                    🏦
+                </div>
+
+                <div class="action-label">
+                    Final Capital
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    ₹{{ "{:,.2f}".format(backtest_result.final_capital) }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Net Profit -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon
+                    {% if backtest_result.total_profit >= 0 %}
+                        text-success
+                    {% else %}
+                        text-danger
+                    {% endif %}">
+
+                    {% if backtest_result.total_profit >= 0 %}
+                        📈
+                    {% else %}
+                        📉
+                    {% endif %}
+
+                </div>
+
+                <div class="action-label">
+                    Net Profit / Loss
+                </div>
+
+                <div
+                    class="fw-bold fs-5 mt-1
+                    {% if backtest_result.total_profit >= 0 %}
+                        profit-positive
+                    {% else %}
+                        profit-negative
+                    {% endif %}">
+
+                    ₹{{ "{:,.2f}".format(backtest_result.total_profit) }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Return -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon
+                    {% if backtest_result.total_return >= 0 %}
+                        text-success
+                    {% else %}
+                        text-danger
+                    {% endif %}">
+
+                    📊
+
+                </div>
+
+                <div class="action-label">
+                    Total Return
+                </div>
+
+                <div
+                    class="fw-bold fs-5 mt-1
+                    {% if backtest_result.total_return >= 0 %}
+                        profit-positive
+                    {% else %}
+                        profit-negative
+                    {% endif %}">
+
+                    {{ backtest_result.total_return | round(2) }}%
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- RISK / PERFORMANCE -->
+    <!-- ========================= -->
+
+    <div class="row g-3 mb-4">
+
+        <!-- Profit Factor -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-success">
+                    💹
+                </div>
+
+                <div class="action-label">
+                    Profit Factor
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    {{ backtest_result.profit_factor | round(2) }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Max Drawdown -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-danger">
+                    📉
+                </div>
+
+                <div class="action-label">
+                    Max Drawdown
+                </div>
+
+                <div class="fw-bold fs-5 mt-1 profit-negative">
+
+                    ₹{{ "{:,.2f}".format(backtest_result.max_drawdown) }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Sharpe Ratio -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-info">
+                    📐
+                </div>
+
+                <div class="action-label">
+                    Sharpe Ratio
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    {{ backtest_result.sharpe_ratio | round(2) }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Risk Profile -->
+        <div class="col-6 col-md-3">
+
+            <div class="action-card">
+
+                <div class="action-icon text-warning">
+                    🛡️
+                </div>
+
+                <div class="action-label">
+                    Risk Profile
+                </div>
+
+                <div class="fw-bold fs-5 mt-1">
+
+                    {% set dd = backtest_result.max_drawdown | abs %}
+
+                    {% set capital = backtest_result.initial_capital %}
+
+                    {% if capital > 0 %}
+
+                        {% set dd_percent = (dd / capital) * 100 %}
+
+                        {% if dd_percent <= 5 %}
+
+                            <span class="status-good">
+                                Low
+                            </span>
+
+                        {% elif dd_percent <= 10 %}
+
+                            <span class="status-average">
+                                Moderate
+                            </span>
+
+                        {% else %}
+
+                            <span class="status-poor">
+                                High
+                            </span>
+
+                        {% endif %}
+
+                    {% else %}
+
+                        N/A
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- TRADE QUALITY -->
+    <!-- ========================= -->
+
+    <div class="dashboard-card mb-4">
+
+        <h5 class="mb-4 fw-semibold text-muted">
+            📋 Backtest Performance Summary
+        </h5>
+
+        <div class="row g-4">
+
+            <div class="col-md-4">
+
+                <div class="metric-title">
+                    🟢 Gross Profit
+                </div>
+
+                <div class="small-metric profit-positive">
+
+                    ₹{{ "{:,.2f}".format(backtest_result.gross_profit) }}
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4">
+
+                <div class="metric-title">
+                    🔴 Gross Loss
+                </div>
+
+                <div class="small-metric profit-negative">
+
+                    ₹{{ "{:,.2f}".format(backtest_result.gross_loss) }}
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4">
+
+                <div class="metric-title">
+                    📊 Win / Loss
+                </div>
+
+                <div class="small-metric">
+
+                    {{ backtest_result.winning_trades }}
+                    /
+                    {{ backtest_result.losing_trades }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+    <!-- ========================= -->
+    <!-- CANDLESTICK CHART -->
+    <!-- ========================= -->
+
+    <div class="dashboard-card mb-4">
+
+        <h5 class="mb-4 fw-semibold text-muted">
+            Candlestick / Price Chart
+        </h5>
+
+        <div style="height:450px; position: relative;">
+
+            <canvas id="stockChart"></canvas>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- VOLUME + RSI -->
+    <!-- ========================= -->
+
+    <div class="row g-4">
+
+        <!-- Volume -->
+        <div class="col-md-6">
+
+            <div class="dashboard-card">
+
+                <h5 class="mb-3 fw-semibold text-muted">
+                    Volume Analysis
+                </h5>
+
+                <div style="height:220px;">
+
+                    <canvas id="volumeChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- RSI -->
+        <div class="col-md-6">
+
+            <div class="dashboard-card">
+
+                <h5 class="mb-3 fw-semibold text-muted">
+                    RSI Indicator (14)
+                </h5>
+
+                <div style="height:220px;">
+
+                    <canvas id="rsiChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- FOOTER -->
+    <!-- ========================= -->
+
+    <div class="text-center footer-text">
+
+        <p>
+            © 2026 AI Stock Predictor • Built with Flask & ChartJS ❤️
+        </p>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- JAVASCRIPT -->
+    <!-- ========================= -->
+
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const ohlcRaw =
+                {{ ohlc_data | tojson | safe if ohlc_data else "[]" }};
+
+            const volumeData =
+                {{ volume_data | tojson | safe if volume_data else "[]" }};
+
+            const rsiData =
+                {{ rsi_data | tojson | safe if rsi_data else "[]" }};
+
+            const predicted =
+                {{ predicted if predicted else 0 }};
+
+
+            /* =========================
+               NO DATA
+            ========================= */
+
+            if (ohlcRaw.length === 0) {
+                return;
+            }
+
+
+            /* =========================
+               STOCK CHART
+            ========================= */
+
+            const ctx =
+                document
+                .getElementById('stockChart')
+                .getContext('2d');
+
+
+            new Chart(ctx, {
+
+                type: 'candlestick',
+
+                data: {
+
+                    datasets: [{
+
+                        label: 'Price Data',
+
+                        data: ohlcRaw.map(d => ({
+
+                            x: d.x,
+
+                            o: d.o,
+
+                            h: d.h,
+
+                            l: d.l,
+
+                            c: d.c
+
+                        })),
+
+                        color: {
+
+                            up: '#22c55e',
+
+                            down: '#ef4444',
+
+                            unchanged: '#94a3b8'
+
+                        }
+
+                    }]
+
+                },
+
+
+                options: {
+
+                    responsive: true,
+
+                    maintainAspectRatio: false,
+
+                    scales: {
+
+                        x: {
+
+                            type: 'linear',
+
+                            grid: {
+
+                                color: '#2a354f'
+
+                            }
+
+                        },
+
+                        y: {
+
+                            position: 'right',
+
+                            grid: {
+
+                                color: '#2a354f'
+
+                            }
+
+                        }
+
+                    },
+
+                    plugins: {
+
+                        legend: {
+
+                            display: false
+
+                        }
+
+                    }
+
+                }
+
+            });
+
+
+            /* =========================
+               VOLUME CHART
+            ========================= */
+
+            new Chart(
+
+                document
+                .getElementById('volumeChart'),
+
+                {
+
+                    type: 'bar',
+
+                    data: {
+
+                        datasets: [{
+
+                            label: 'Volume',
+
+                            data: volumeData.map(v => ({
+
+                                x: v.x,
+
+                                y: v.y
+
+                            })),
+
+                            backgroundColor: '#3b82f6'
+
+                        }]
+
+                    },
+
+
+                    options: {
+
+                        responsive: true,
+
+                        maintainAspectRatio: false,
+
+                        scales: {
+
+                            x: {
+
+                                type: 'linear',
+
+                                display: false
+
+                            },
+
+                            y: {
+
+                                grid: {
+
+                                    color: '#2a354f'
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            );
+
+
+            /* =========================
+               RSI CHART
+            ========================= */
+
+            new Chart(
+
+                document
+                .getElementById('rsiChart'),
+
+                {
+
+                    type: 'line',
+
+                    data: {
+
+                        datasets: [{
+
+                            label: 'RSI',
+
+                            data: rsiData.map(r => ({
+
+                                x: r.x,
+
+                                y: r.y
+
+                            })),
+
+                            borderColor: '#f59e0b',
+
+                            borderWidth: 2,
+
+                            pointRadius: 0
+
+                        }]
+
+                    },
+
+
+                    options: {
+
+                        responsive: true,
+
+                        maintainAspectRatio: false,
+
+                        scales: {
+
+                            x: {
+
+                                type: 'linear',
+
+                                display: false
+
+                            },
+
+                            y: {
+
+                                min: 0,
+
+                                max: 100,
+
+                                ticks: {
+
+                                    stepSize: 20
+
+                                },
+
+                                grid: {
+
+                                    color: '#2a354f'
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            );
+
+        });
+
+    </script>
+
+</body>
+
+</html>
