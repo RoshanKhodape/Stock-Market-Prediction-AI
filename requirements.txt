@@ -1,0 +1,9 @@
+Flask
+yfinance
+pandas
+numpy
+tensorflow
+scikit-learn
+requests
+beautifulsoup4
+textblob
